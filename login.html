@@ -8,57 +8,54 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%BB%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Mulish:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  color-scheme: light;
-  --paper:#EFF1EB; --surface:#FAFBF8; --ink:#1B2932; --ink-2:#4A5960; --ink-3:#7B8786; --line-2:#BCC4B8;
-  --o:#27466F; --ho:#DE9C2C; --dov:#2E8A76; --nem:#BE4A5D; --nem-ink:#7A2838; --sc:#6C5DB5;
-  --font:"Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    color-scheme: dark;
-    --paper:#11171C; --surface:#182026; --ink:#E3E8E2; --ink-2:#A6B0AC; --ink-3:#727D7A; --line-2:#3A464D;
-    --o:#8FB0DD; --ho:#E8AE4A; --dov:#5BC0A7; --nem:#E57A8C; --nem-ink:#F3AEBA; --sc:#9E90E6;
-  }
-}
-:root[data-theme="dark"]{
   color-scheme: dark;
-  --paper:#11171C; --surface:#182026; --ink:#E3E8E2; --ink-2:#A6B0AC; --ink-3:#727D7A; --line-2:#3A464D;
-  --o:#8FB0DD; --ho:#E8AE4A; --dov:#5BC0A7; --nem:#E57A8C; --nem-ink:#F3AEBA; --sc:#9E90E6;
+  --dp:#11002D; --pu:#413357; --gr:#06D473; --pk:#FF80E3; --card:#2A1A45; --muted:#C9C2D6; --white:#FFFFFF;
+  --f-head:'Bricolage Grotesque','Arial Black',Arial,sans-serif;
+  --f-body:'Mulish',Arial,Helvetica,sans-serif;
+  box-sizing:border-box;
 }
 *,*::before,*::after{box-sizing:inherit}
 html,body{height:100%}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;display:flex;align-items:center}
-.wrap{width:100%;max-width:1320px;margin:0 auto;padding:32px clamp(20px,5vw,64px)}
-.brand{margin:0 0 clamp(20px,4vw,36px);font-weight:600;font-size:.9375rem;color:var(--ink-2)}
-h1{margin:0;font-size:clamp(3rem,9vw,6.5rem);font-weight:760;font-stretch:75%;line-height:.88;letter-spacing:-.025em;max-width:12ch}
-.dots{display:flex;gap:8px;margin:clamp(22px,4vw,34px) 0 clamp(26px,4vw,40px)}
-.dots span{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 -1.5px 0 rgba(0,0,0,.2)}
-form{max-width:30rem}
-label{display:block;font-weight:600;margin-bottom:8px}
+body{margin:0;background:var(--gr);color:var(--white);font-family:var(--f-body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;
+  padding-top:calc(10px + env(safe-area-inset-top,0px))}
+.panel{position:relative;overflow:hidden;min-height:100%;background:var(--dp);border-radius:clamp(24px,4vw,56px) clamp(24px,4vw,56px) 0 0;
+  background-image:radial-gradient(ellipse 60% 70% at 92% 100%, rgba(6,212,115,.22), transparent 70%);
+  display:flex;align-items:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{width:100%;max-width:1320px;margin:0 auto;padding:40px clamp(20px,5vw,64px)}
+.brand{display:flex;align-items:center;gap:14px;margin:0 0 clamp(28px,5vw,48px);font-weight:600;font-size:.9375rem;color:var(--white)}
+.brand svg{height:28px;width:auto;display:block}
+.brand .sep{width:1px;height:22px;background:var(--pu)}
+.eyebrow{display:inline-block;font-family:var(--f-head);font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.02em;background:var(--gr);color:var(--dp);padding:.35em .9em;border-radius:999px;margin-bottom:16px}
+h1{margin:0;font-family:var(--f-head);font-weight:800;font-size:clamp(2.75rem,8vw,5.5rem);line-height:1;letter-spacing:-.01em;max-width:12ch}
+h1 .hl{color:var(--gr)}
+.dots{position:absolute;right:clamp(20px,5vw,64px);bottom:clamp(30px,6vw,64px);display:grid;grid-template-columns:repeat(6,26px);gap:7px;pointer-events:none}
+.dots i{width:26px;height:26px;border-radius:50%;background:var(--pu)}
+.dots i.g{background:var(--gr)} .dots i.p{background:var(--pk)}
+form{max-width:30rem;margin-top:clamp(28px,5vw,44px)}
+label{display:block;font-family:var(--f-head);font-weight:700;font-size:.875rem;margin-bottom:8px}
 .row{display:flex;gap:8px}
-input[type=password]{flex:1;min-width:0;height:48px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:1rem;padding:0 14px}
-button{height:48px;padding:0 20px;border:1px solid var(--ink);border-radius:10px;background:var(--ink);color:var(--surface);font:inherit;font-size:1rem;font-weight:620;cursor:pointer}
-button:hover{opacity:.92}
-:where(button,input):focus-visible{outline:2px solid var(--o);outline-offset:2px}
-input[aria-invalid="true"]{border-color:var(--nem)}
-.err{margin:10px 0 0;color:var(--nem-ink);font-weight:600}
-.foot{margin:18px 0 0;color:var(--ink-3);font-size:.9375rem}
+input[type=password]{flex:1;min-width:0;height:50px;border:1px solid var(--pu);border-radius:999px;background:var(--card);color:var(--white);font:inherit;font-size:1rem;padding:0 20px}
+input[type=password]:focus{outline:2px solid var(--gr);outline-offset:1px;border-color:transparent}
+button{height:50px;padding:0 24px;border:0;border-radius:999px;background:var(--gr);color:var(--dp);font-family:var(--f-head);font-size:1rem;font-weight:700;cursor:pointer}
+button:hover{filter:brightness(.95)}
+:where(button,input):focus-visible{outline:2px solid var(--gr);outline-offset:2px}
+input[aria-invalid="true"]{border-color:var(--pk);box-shadow:0 0 0 1px var(--pk)}
+.err{margin:10px 0 0;color:var(--pk);font-weight:700}
+.foot{margin:18px 0 0;color:var(--muted);font-size:.9375rem;max-width:44ch}
 [hidden]{display:none !important}
+@media (max-width:900px){ .dots{display:none} }
+@media (max-width:420px){ .row{flex-direction:column} button{width:100%} }
 </style>
 </head>
 <body>
+<div class="panel">
 <main class="wrap">
-  <p class="brand">Sales tím: prehľad techniky</p>
-  <h1>S&nbsp;čím pracuješ?</h1>
-  <div class="dots" aria-hidden="true">
-    <span style="background:var(--o)"></span><span style="background:var(--ho)"></span><span style="background:var(--dov)"></span><span style="background:var(--nem)"></span><span style="background:var(--sc)"></span>
-  </div>
+  <p class="brand"><svg width="84" height="28" viewBox="0 0 346 116" role="img" aria-label="PLG"><circle cx="58.2" cy="58.2" r="57.3" fill="#FF80E3"/><circle cx="287.6" cy="58.2" r="57.3" fill="#DBD7E2"/><circle cx="172.9" cy="58.2" r="57.3" fill="#06D473"/><path fill="#11002D" fill-rule="evenodd" d="M157.0 28.2 156.7 28.5 156.7 88.3 157.0 88.7 192.7 88.7 192.7 76.2 171.2 76.2 170.5 75.7 170.5 28.5 170.2 28.2ZM68.5 29.2 62.2 28.2 37.2 28.3 37.3 88.7 50.5 88.7 50.8 88.3 50.8 68.5 51.2 68.0 63.2 67.7 68.0 66.7 69.2 66.0 70.8 65.7 75.3 62.8 77.8 60.3 79.7 57.7 81.5 52.8 81.8 50.7 81.8 44.2 80.7 39.3 80.0 38.5 79.5 37.0 76.5 33.3 73.7 31.3ZM51.0 40.5 51.8 40.0 60.8 40.0 64.0 40.8 65.7 42.0 67.2 44.0 68.0 47.2 67.8 49.8 67.0 52.3 66.0 53.7 64.2 55.0 61.2 56.0 51.2 55.8 50.8 55.3ZM269.7 33.2 266.2 36.5 263.3 40.5 263.0 41.7 261.2 45.0 261.0 46.2 260.2 47.8 260.0 49.8 259.2 52.5 259.0 64.2 259.5 68.8 261.3 75.8 263.3 80.0 265.0 82.3 267.2 84.7 269.5 86.5 274.2 88.7 280.0 89.7 284.3 89.7 289.8 88.7 294.7 86.5 298.5 83.5 301.7 79.0 302.7 76.8 302.8 75.7 303.5 74.7 303.8 72.5 304.5 72.0 305.0 72.5 305.2 75.0 304.8 77.0 304.8 81.5 304.3 82.3 304.2 88.5 315.8 88.5 315.7 55.5 287.5 55.3 287.2 55.7 287.3 65.8 300.8 65.8 301.8 66.8 301.0 70.3 299.3 72.7 296.7 75.0 292.0 77.0 283.2 77.0 280.3 76.0 278.5 74.8 276.8 73.3 274.8 70.0 273.8 67.3 273.5 63.3 273.0 62.0 273.0 55.8 273.5 54.5 273.8 51.0 275.8 46.0 276.8 44.5 279.5 42.0 281.8 40.7 285.0 39.7 289.0 39.3 293.2 39.8 296.2 41.0 298.8 42.8 301.8 46.3 303.2 48.7 303.3 49.5 303.8 50.0 306.2 49.7 307.5 48.8 308.8 48.7 310.5 47.8 311.8 47.7 313.3 46.8 314.7 46.7 316.0 45.8 315.7 44.0 315.0 43.2 314.5 41.7 311.7 37.3 307.8 33.3 303.7 30.5 298.8 28.3 292.8 27.2 285.0 27.2 281.7 28.0 279.5 28.2 274.0 30.3Z"/></svg><span class="sep"></span>Sales tím: prehľad techniky</p>
+  <span class="eyebrow">Interný prehľad · Sales tím</span>
+  <h1>S&nbsp;čím <span class="hl">pracuješ?</span></h1>
   <form method="post" action="/api/login">
     <label for="pw">Tímové heslo</label>
     <div class="row">
@@ -70,6 +67,8 @@ input[aria-invalid="true"]{border-color:var(--nem)}
   </form>
   <p class="foot">Heslo ti pošle vedúci tímu. Netreba žiadny účet, stačí heslo. Prehliadač si prihlásenie zapamätá na 30 dní.</p>
 </main>
+<div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="g"></i><i></i><i></i><i></i><i class="p"></i><i></i><i></i><i></i></div>
+</div>
 <script>
 (function(){
   var q = new URLSearchParams(location.search);
