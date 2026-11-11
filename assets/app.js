@@ -8,11 +8,21 @@ const KINDS = [
   {v:'mobil', l:'Mobil'}, {v:'notebook', l:'Notebook'}, {v:'monitor', l:'Monitor'},
   {v:'tablet', l:'Tablet'}, {v:'ine', l:'Iné'}
 ];
+// Lineárne ikony (štýl Lucide), farbu berú z textu.
+const ICON = {
+  mobil:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  notebook:'<rect x="4" y="4" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
+  monitor:'<rect x="2" y="3" width="20" height="13" rx="2"/><path d="M8 21h8M12 16v5"/>',
+  tablet:'<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>',
+  ine:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'
+};
+const icon = k => '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">'+(ICON[k]||ICON.ine)+'</svg>';
+const meter = n => '<span class="meter" aria-hidden="true">'+[1,2,3,4].map(i => '<i'+(i<=n?' class="on"':'')+'></i>').join('')+'</span>';
 const STAV = [
-  {v:'nove', l:'Ako nové', d:'bez stôp používania', c:'st-nove'},
-  {v:'dobry', l:'Dobrý', d:'bežné stopy, funguje spoľahlivo', c:'st-dobry'},
-  {v:'opotrebovane', l:'Opotrebované', d:'viditeľne opotrebené alebo pomalšie, ale funguje', c:'st-opotr'},
-  {v:'vymenit', l:'Treba vymeniť', d:'poškodené alebo nespoľahlivé', c:'st-vym'}
+  {v:'nove', l:'Ako nové', d:'bez stôp používania', c:'st-nove', m:4},
+  {v:'dobry', l:'Dobrý', d:'bežné stopy, funguje spoľahlivo', c:'st-dobry', m:3},
+  {v:'opotrebovane', l:'Opotrebované', d:'viditeľne opotrebené alebo pomalšie, ale funguje', c:'st-opotr', m:2},
+  {v:'vymenit', l:'Treba vymeniť', d:'poškodené alebo nespoľahlivé', c:'st-vym', m:1}
 ];
 const OWN = [{v:'osobne', l:'Osobné', c:'p-own'}, {v:'firemne', l:'Firemné', c:'p-firm'}];
 const PREF = [
@@ -120,7 +130,11 @@ async function refresh(){
 
 /* ---------- form ---------- */
 function chipsHtml(name, opts, kindClass){
-  return opts.map(o => '<label class="chip '+(kindClass ? 'k-'+o.v : o.c)+'"><input type="radio" name="'+name+'" value="'+o.v+'"><span><i class="t">'+esc(o.l)+(o.d ? '<small>'+esc(o.d)+'</small>' : '')+'</i></span></label>').join('');
+  return opts.map(o => {
+    const lead = kindClass ? icon(o.v) : (o.m ? meter(o.m) : '');
+    const cls = 'chip ' + (kindClass ? 'k-'+o.v+' has-ic' : o.c + (o.m ? ' has-ic' : ''));
+    return '<label class="'+cls+'"><input type="radio" name="'+name+'" value="'+o.v+'"><span>'+lead+'<i class="t">'+esc(o.l)+(o.d ? '<small>'+esc(o.d)+'</small>' : '')+'</i></span></label>';
+  }).join('');
 }
 $('#cDruh').innerHTML = chipsHtml('druh', KINDS, true);
 $('#cStav').innerHTML = chipsHtml('stav', STAV);
@@ -274,13 +288,13 @@ function renderStats(){
   const it = S.items;
   const st = (n, t, c) => '<div class="stat '+(c||'')+'"><span class="n">'+n+'</span><span class="t">'+t+'</span></div>';
   $('#stats').innerHTML = S.loaded ? (
-    st(it.length, plural(it.length)) +
+    st(it.length, plural(it.length), 'hl') +
     st(people(it) + (S.team.length ? '<small> / '+S.team.length+'</small>' : ''), 'ľudí sa zapísalo') +
-    st(it.filter(x => x.stav === 'vymenit').length, 'treba vymeniť', 'nem') +
-    st(it.filter(x => x.vlastnictvo === 'osobne').length, 'osobných', 'ho') +
-    st(it.filter(x => x.vlastnictvo === 'firemne').length, 'firemných', 'o') +
-    st(it.filter(x => x.preferencia === 'vlastne').length, 'chce vlastné so zabezpečením', 'ho') +
-    st(it.filter(x => x.preferencia === 'firemne').length, 'chce firemné', 'o')
+    st(it.filter(x => x.stav === 'vymenit').length, 'treba vymeniť', 'pk') +
+    st(it.filter(x => x.vlastnictvo === 'osobne').length, 'osobných') +
+    st(it.filter(x => x.vlastnictvo === 'firemne').length, 'firemných') +
+    st(it.filter(x => x.preferencia === 'vlastne').length, 'chce vlastné so zabezpečením', 'gr') +
+    st(it.filter(x => x.preferencia === 'firemne').length, 'chce firemné', 'gr')
   ) : '';
   const done = new Set(it.map(personKey));
   const missing = S.team.filter(n => !done.has(personKey({meno:n})));
@@ -320,9 +334,9 @@ function renderList(){
     const p = PL[x.preferencia];
     h += '<tr'+(x.id === S.editId ? ' class="editing"' : '')+'>' +
       '<td class="who">'+esc(x.meno)+'</td>' +
-      '<td><span class="tag k-'+x.druh+'">'+KL[x.druh]+'</span></td>' +
+      '<td><span class="tag kind k-'+x.druh+'">'+icon(x.druh)+KL[x.druh]+'</span></td>' +
       '<td class="dev">'+esc(x.nazov)+'</td>' +
-      '<td>'+(SL[x.stav] ? '<span class="tag '+SL[x.stav].c+'">'+SL[x.stav].l+'</span>' : '<span class="plain">–</span>')+'</td>' +
+      '<td>'+(SL[x.stav] ? '<span class="tag stav '+SL[x.stav].c+'">'+meter(SL[x.stav].m)+SL[x.stav].l+'</span>' : '<span class="plain">–</span>')+'</td>' +
       '<td class="plain">'+(OL[x.vlastnictvo] || '–')+'</td>' +
       '<td class="pref">'+(p ? esc(p.s) : '–')+'</td>' +
       '<td class="ops">'+(canTouch(x) ? '<button class="btn small" data-edit="'+esc(x.id)+'">Upraviť</button> <button class="btn small danger" data-del="'+esc(x.id)+'">Odstrániť</button>' : '')+'</td>' +
