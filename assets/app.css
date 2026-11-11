@@ -145,3 +145,17 @@ dialog p{margin:0 0 18px;color:var(--ink-2)}
 select.inp{padding:0 8px}
 .stat .n small{font-size:.5em;font-weight:600;color:var(--ink-3);margin-left:2px}
 .layout{grid-template-columns:minmax(0,23rem) minmax(0,1fr)}
+.st-nove{--x:var(--dov);--x-soft:var(--dov-soft);--x-ink:var(--dov-ink)}
+.st-dobry{--x:var(--o);--x-soft:var(--o-soft);--x-ink:var(--o-ink)}
+.st-opotr{--x:var(--ho);--x-soft:var(--ho-soft);--x-ink:var(--ho-ink)}
+.st-vym{--x:var(--nem);--x-soft:var(--nem-soft);--x-ink:var(--nem-ink)}
+.stat.nem .n{color:var(--nem-ink)}
+.chip .t{font-style:normal;display:flex;flex-direction:column}
+.chip .t small{font-weight:500;font-size:.78rem;opacity:.8;margin-top:1px}
+.chips.stack .chip span{align-items:flex-start}
+.chips.stack .chip span::before{margin-top:4px}
+.stats{grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr))}
+th,td{padding:10px 10px}
+thead th{white-space:normal}
+td.ops .btn.small{padding:0 8px}
+@media (max-width:1400px){ td.pref{display:none} th.th-pref{display:none} }
