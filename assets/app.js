@@ -23,7 +23,8 @@ const ERR = {
   quota_exceeded: 'Tabuľka je plná, ďalšie zariadenia sa nedajú pridať.',
   busy: 'Server je práve zaneprázdnený. Skús to o chvíľu znova.',
   not_found: 'Toto zariadenie medzitým niekto odstránil.',
-  bad_request: 'Údaje sa nepodarilo uložiť. Skontroluj, či sú vyplnené všetky polia.'
+  bad_request: 'Údaje sa nepodarilo uložiť. Skontroluj, či sú vyplnené všetky polia.',
+  forbidden: 'Toto zariadenie môže upraviť len ten, kto ho pridal, alebo správca.'
 };
 
 const $ = s => document.querySelector(s);
@@ -34,7 +35,7 @@ const str = (v, n) => typeof v === 'string' ? v.trim().slice(0, n) : '';
 const fold = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const collator = new Intl.Collator('sk', {sensitivity:'base'});
 
-const S = { mode:'loading', items:[], loaded:false, err:'', busy:0, editId:null, q:'', kind:'', lastOk:0 };
+const S = { mode:'loading', role:'u', items:[], loaded:false, err:'', busy:0, editId:null, q:'', kind:'', lastOk:0 };
 let delId = null;
 
 if(CFG.teamName){ $('#brand').textContent = CFG.teamName + ': prehľad techniky'; document.title = CFG.teamName + ': prehľad techniky'; }
@@ -47,10 +48,13 @@ function clean(b){
     druh: KL[b.druh] ? b.druh : 'ine', nazov: str(b.nazov, 80),
     vlastnictvo: OL[b.vlastnictvo] ? b.vlastnictvo : '',
     preferencia: PL[b.preferencia] ? b.preferencia : '',
-    t: typeof b.t === 'number' ? b.t : 0
+    t: typeof b.t === 'number' ? b.t : 0,
+    mine: b.mine === true
   };
 }
 const canEdit = () => S.mode === 'live' || S.mode === 'local';
+const isAdmin = () => S.role === 'a' || S.mode === 'local';
+const canTouch = x => !!x && canEdit() && (x.mine || isAdmin());
 
 /* ---------- server ---------- */
 async function api(action, extra){
@@ -72,6 +76,7 @@ async function api(action, extra){
   return j.data || {};
 }
 function applyItems(data){
+  if(data && (data.role === 'a' || data.role === 'u')) S.role = data.role;
   if(data && Array.isArray(data.items)){
     S.items = data.items.map(clean).filter(Boolean);
     S.loaded = true; S.lastOk = Date.now();
@@ -140,7 +145,7 @@ function resetDevice(){
 }
 function startEdit(id){
   const it = S.items.find(x => x.id === id);
-  if(!it || !canEdit()) return;
+  if(!canTouch(it)) return;
   S.editId = id;
   $('#fMeno').value = it.meno; $('#fPriez').value = it.priezvisko; $('#fNazov').value = it.nazov;
   setRadio('druh', it.druh); setRadio('vl', it.vlastnictvo); setRadio('pref', it.preferencia);
@@ -167,7 +172,7 @@ async function submit(){
       if(S.mode === 'local'){
         const id = editing || ('l' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
         const prev = S.items.find(x => x.id === id);
-        const it = clean(Object.assign({id, t: prev ? prev.t : Date.now()}, d));
+        const it = clean(Object.assign({id, t: prev ? prev.t : Date.now(), mine: true}, d));
         S.items = S.items.filter(x => x.id !== id).concat([it]);
         saveLocal();
       } else {
@@ -217,7 +222,8 @@ function startLocal(){
 function saveLocal(){ lsSet('data', JSON.stringify(S.items)); }
 
 /* ---------- render ---------- */
-function render(){ renderSync(); renderStats(); renderForm(); renderList(); }
+function render(){ renderSync(); renderRole(); renderStats(); renderForm(); renderList(); }
+function renderRole(){ $('#role').hidden = !(S.mode === 'live' && S.role === 'a'); }
 function renderSync(){
   const el = $('#sync');
   let t, cls = '';
@@ -252,7 +258,7 @@ function renderForm(){
 }
 function renderList(){
   const wrap = $('#tblWrap');
-  $('#exportBtn').hidden = !S.items.length;
+  $('#exportBtn').hidden = !S.items.length || !isAdmin();
   if(!S.loaded){
     wrap.innerHTML = '<div class="empty"><p>'+(S.err ? esc(S.err) : 'Načítavam zoznam…')+'</p></div>';
     $('#foot').textContent = ''; return;
@@ -279,11 +285,14 @@ function renderList(){
       '<td class="dev">'+esc(x.nazov)+'</td>' +
       '<td class="plain">'+(OL[x.vlastnictvo] || '–')+'</td>' +
       '<td class="pref">'+(p ? esc(p.s) : '–')+'</td>' +
-      '<td class="ops"><button class="btn small" data-edit="'+esc(x.id)+'">Upraviť</button> <button class="btn small danger" data-del="'+esc(x.id)+'">Odstrániť</button></td>' +
+      '<td class="ops">'+(canTouch(x) ? '<button class="btn small" data-edit="'+esc(x.id)+'">Upraviť</button> <button class="btn small danger" data-del="'+esc(x.id)+'">Odstrániť</button>' : '')+'</td>' +
       '</tr>';
   });
   wrap.innerHTML = h + '</tbody></table>';
-  $('#foot').textContent = rows.length === S.items.length ? '' : 'Zobrazené ' + rows.length + ' z ' + S.items.length + ' zariadení.';
+  const notes = [];
+  if(rows.length !== S.items.length) notes.push('Zobrazené ' + rows.length + ' z ' + S.items.length + ' zariadení.');
+  if(!isAdmin() && S.items.some(x => !x.mine)) notes.push('Upraviť a odstrániť môžeš zariadenia, ktoré si pridal v tomto prehliadači. Ostatné zmení správca.');
+  $('#foot').textContent = notes.join(' ');
 }
 
 /* ---------- export ---------- */
@@ -315,7 +324,7 @@ $('#tblWrap').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   if(b.dataset.edit) startEdit(b.dataset.edit);
   else if(b.dataset.del){
-    const it = S.items.find(x => x.id === b.dataset.del); if(!it) return;
+    const it = S.items.find(x => x.id === b.dataset.del); if(!canTouch(it)) return;
     delId = it.id;
     $('#delText').textContent = it.meno + ' ' + it.priezvisko + ': ' + KL[it.druh] + ', ' + it.nazov;
     const d = $('#delDlg'); if(typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open','');
