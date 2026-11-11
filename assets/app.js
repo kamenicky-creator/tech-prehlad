@@ -24,6 +24,7 @@ const ERR = {
   busy: 'Server je práve zaneprázdnený. Skús to o chvíľu znova.',
   not_found: 'Toto zariadenie medzitým niekto odstránil.',
   bad_request: 'Údaje sa nepodarilo uložiť. Skontroluj, či sú vyplnené všetky polia.',
+  unknown_member: 'Toto meno už nie je v zozname tímu. Obnov stránku a vyber meno znova.',
   forbidden: 'Toto zariadenie môže upraviť len ten, kto ho pridal, alebo správca.'
 };
 
@@ -35,7 +36,7 @@ const str = (v, n) => typeof v === 'string' ? v.trim().slice(0, n) : '';
 const fold = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const collator = new Intl.Collator('sk', {sensitivity:'base'});
 
-const S = { mode:'loading', role:'u', items:[], loaded:false, err:'', busy:0, editId:null, q:'', kind:'', lastOk:0 };
+const S = { mode:'loading', role:'u', team:[], kto:'', items:[], loaded:false, err:'', busy:0, editId:null, q:'', kind:'', lastOk:0 };
 let delId = null;
 
 if(CFG.teamName){ $('#brand').textContent = CFG.teamName + ': prehľad techniky'; document.title = CFG.teamName + ': prehľad techniky'; }
@@ -44,7 +45,7 @@ function clean(b){
   if(!b || typeof b !== 'object' || typeof b.id !== 'string' || !b.id) return null;
   return {
     id: b.id.slice(0,40),
-    meno: str(b.meno, 40), priezvisko: str(b.priezvisko, 60),
+    meno: str(b.meno, 40),
     druh: KL[b.druh] ? b.druh : 'ine', nazov: str(b.nazov, 80),
     vlastnictvo: OL[b.vlastnictvo] ? b.vlastnictvo : '',
     preferencia: PL[b.preferencia] ? b.preferencia : '',
@@ -77,6 +78,10 @@ async function api(action, extra){
 }
 function applyItems(data){
   if(data && (data.role === 'a' || data.role === 'u')) S.role = data.role;
+  if(data && Array.isArray(data.team)){
+    S.team = data.team.map(m => m && str(m.name, 40)).filter(Boolean);
+    renderKto();
+  }
   if(data && Array.isArray(data.items)){
     S.items = data.items.map(clean).filter(Boolean);
     S.loaded = true; S.lastOk = Date.now();
@@ -110,8 +115,16 @@ $('#cDruh').innerHTML = chipsHtml('druh', KINDS, true);
 $('#cVl').innerHTML = chipsHtml('vl', OWN);
 $('#cPref').innerHTML = chipsHtml('pref', PREF);
 $('#fKind').innerHTML = '<option value="">Všetky druhy</option>' + KINDS.map(k => '<option value="'+k.v+'">'+k.l+'</option>').join('');
-$('#fMeno').value = lsGet('meno') || '';
-$('#fPriez').value = lsGet('priezvisko') || '';
+// Zoznam mien. Pri úprave staršieho záznamu sa pridá aj meno, ktoré v zozname tímu už nie je.
+function renderKto(extra){
+  const sel = $('#fKto'), cur = extra || sel.value || S.kto;
+  const names = S.team.slice();
+  if(cur && names.indexOf(cur) === -1) names.push(cur);
+  sel.innerHTML = '<option value="">' + (names.length ? 'Vyber svoje meno' : 'Zoznam mien je zatiaľ prázdny') + '</option>' +
+    names.map(n => '<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+  sel.value = names.indexOf(cur) !== -1 ? cur : '';
+}
+renderKto();
 
 const radio = n => { const el = document.querySelector('input[name="'+n+'"]:checked'); return el ? el.value : ''; };
 const setRadio = (n, v) => document.querySelectorAll('input[name="'+n+'"]').forEach(el => { el.checked = el.value === v; });
@@ -119,7 +132,7 @@ setRadio('pref', lsGet('pref') || '');
 
 function readForm(){
   return {
-    meno: $('#fMeno').value.trim().slice(0,40), priezvisko: $('#fPriez').value.trim().slice(0,60),
+    meno: $('#fKto').value.slice(0,40),
     druh: radio('druh'), nazov: $('#fNazov').value.trim().slice(0,80),
     vlastnictvo: radio('vl'), preferencia: radio('pref')
   };
@@ -127,7 +140,7 @@ function readForm(){
 function validate(d){
   const bad = [];
   const mark = (el, b) => { if(el.tagName === 'FIELDSET') el.classList.toggle('fieldset-bad', b); else el.setAttribute('aria-invalid', String(b)); if(b) bad.push(el); };
-  mark($('#fMeno'), !d.meno); mark($('#fPriez'), !d.priezvisko);
+  mark($('#fKto'), !d.meno);
   mark($('#fsDruh'), !d.druh); mark($('#fNazov'), !d.nazov);
   mark($('#fsVl'), !d.vlastnictvo); mark($('#fsPref'), !d.preferencia);
   if(bad.length){
@@ -147,7 +160,7 @@ function startEdit(id){
   const it = S.items.find(x => x.id === id);
   if(!canTouch(it)) return;
   S.editId = id;
-  $('#fMeno').value = it.meno; $('#fPriez').value = it.priezvisko; $('#fNazov').value = it.nazov;
+  renderKto(it.meno); $('#fNazov').value = it.nazov;
   setRadio('druh', it.druh); setRadio('vl', it.vlastnictvo); setRadio('pref', it.preferencia);
   renderForm(); renderList();
   $('#fNazov').focus();
@@ -155,7 +168,7 @@ function startEdit(id){
 }
 function stopEdit(silent){
   S.editId = null;
-  $('#fMeno').value = lsGet('meno') || ''; $('#fPriez').value = lsGet('priezvisko') || '';
+  renderKto(S.kto);
   resetDevice();
   if(!silent){ renderForm(); renderList(); }
 }
@@ -164,8 +177,9 @@ async function submit(){
   if(!canEdit()){ toast(S.loaded ? 'Server je práve nedostupný, skús to o chvíľu.' : 'Zoznam sa ešte načítava.'); return; }
   const d = readForm();
   if(!validate(d)) return;
-  lsSet('meno', d.meno); lsSet('priezvisko', d.priezvisko); lsSet('pref', d.preferencia);
+  lsSet('pref', d.preferencia);
   const editing = S.editId;
+  if(!editing) S.kto = d.meno;
   const btn = $('#submit'); btn.disabled = true;
   try {
     await write(async () => {
@@ -179,7 +193,7 @@ async function submit(){
         applyItems(editing ? await api('update', {id: editing, item: d}) : await api('add', {item: d}));
       }
     });
-    if(editing){ S.editId = null; toast('Zmena je uložená.'); }
+    if(editing){ S.editId = null; renderKto(S.kto); toast('Zmena je uložená.'); }
     else toast('Zariadenie je pridané. Môžeš pridať ďalšie.');
     resetDevice(); render();
     $('#fsDruh input').focus();
@@ -213,6 +227,8 @@ function onWriteError(e){
 /* ---------- local fallback ---------- */
 function startLocal(){
   S.mode = 'local';
+  S.team = Array.isArray(CFG.localTeam) ? CFG.localTeam.slice() : ['Ukážka'];
+  renderKto();
   let data = null;
   try { data = JSON.parse(lsGet('data') || 'null'); } catch(e){}
   S.items = Array.isArray(data) ? data.map(clean).filter(Boolean) : [];
@@ -235,24 +251,34 @@ function renderSync(){
   if(el.textContent !== t) el.textContent = t;
   el.className = 'sync ' + cls;
 }
-function personKey(x){ return fold(x.meno + ' ' + x.priezvisko).replace(/\s+/g,' ').trim(); }
+function personKey(x){ return fold(x.meno).replace(/\s+/g,' ').trim(); }
 function plural(n){ return n === 1 ? 'zariadenie' : (n >= 2 && n <= 4 ? 'zariadenia' : 'zariadení'); }
+// Koľko ľudí z tímu už niečo zapísalo (bez tímu: počet rôznych mien).
+function people(it){
+  const done = new Set(it.map(personKey));
+  return S.team.length ? S.team.filter(n => done.has(personKey({meno:n}))).length : done.size;
+}
 function renderStats(){
   const it = S.items;
   const st = (n, t, c) => '<div class="stat '+(c||'')+'"><span class="n">'+n+'</span><span class="t">'+t+'</span></div>';
   $('#stats').innerHTML = S.loaded ? (
     st(it.length, plural(it.length)) +
-    st(new Set(it.map(personKey)).size, 'ľudí sa zapísalo') +
+    st(people(it) + (S.team.length ? '<small> / '+S.team.length+'</small>' : ''), 'ľudí sa zapísalo') +
     st(it.filter(x => x.vlastnictvo === 'osobne').length, 'osobných', 'ho') +
     st(it.filter(x => x.vlastnictvo === 'firemne').length, 'firemných', 'o') +
     st(it.filter(x => x.preferencia === 'vlastne').length, 'chce vlastné so zabezpečením', 'ho') +
     st(it.filter(x => x.preferencia === 'firemne').length, 'chce firemné', 'o')
   ) : '';
+  const done = new Set(it.map(personKey));
+  const missing = S.team.filter(n => !done.has(personKey({meno:n})));
+  const m = $('#missing');
+  m.hidden = !S.loaded || !S.team.length;
+  m.innerHTML = missing.length ? '<b>Ešte sa nezapísali:</b> ' + missing.map(esc).join(', ') : '<b>Zapísal sa celý tím.</b>';
 }
 function renderForm(){
   const ed = !!S.editId;
   $('#formTitle').textContent = ed ? 'Upraviť zariadenie' : 'Pridať zariadenie';
-  $('#formHint').textContent = ed ? 'Uprav údaje a ulož zmenu.' : 'Meno a priezvisko si zapamätáme, ďalšie zariadenie pridáš rýchlejšie.';
+  $('#formHint').textContent = ed ? 'Uprav údaje a ulož zmenu.' : 'Vyber svoje meno a pridaj zariadenia jedno po druhom.';
   $('#submit').textContent = ed ? 'Uložiť zmenu' : 'Pridať zariadenie';
   $('#cancelEdit').hidden = !ed;
 }
@@ -266,8 +292,8 @@ function renderList(){
   const q = fold(S.q);
   const rows = S.items
     .filter(x => !S.kind || x.druh === S.kind)
-    .filter(x => !q || fold(x.meno+' '+x.priezvisko+' '+x.nazov+' '+KL[x.druh]).indexOf(q) !== -1)
-    .sort((a,b) => collator.compare(a.priezvisko, b.priezvisko) || collator.compare(a.meno, b.meno) || KINDS.findIndex(k => k.v === a.druh) - KINDS.findIndex(k => k.v === b.druh) || a.t - b.t);
+    .filter(x => !q || fold(x.meno+' '+x.nazov+' '+KL[x.druh]).indexOf(q) !== -1)
+    .sort((a,b) => collator.compare(a.meno, b.meno) || KINDS.findIndex(k => k.v === a.druh) - KINDS.findIndex(k => k.v === b.druh) || a.t - b.t);
   if(!S.items.length){
     wrap.innerHTML = '<div class="empty"><p>Zatiaľ tu nie je žiadne zariadenie. Pridaj prvé vo formulári.</p></div>';
     $('#foot').textContent = ''; return;
@@ -280,7 +306,7 @@ function renderList(){
   rows.forEach(x => {
     const p = PL[x.preferencia];
     h += '<tr'+(x.id === S.editId ? ' class="editing"' : '')+'>' +
-      '<td class="who">'+esc(x.meno)+' '+esc(x.priezvisko)+'</td>' +
+      '<td class="who">'+esc(x.meno)+'</td>' +
       '<td><span class="tag k-'+x.druh+'">'+KL[x.druh]+'</span></td>' +
       '<td class="dev">'+esc(x.nazov)+'</td>' +
       '<td class="plain">'+(OL[x.vlastnictvo] || '–')+'</td>' +
@@ -298,9 +324,9 @@ function renderList(){
 /* ---------- export ---------- */
 function exportCsv(){
   const cell = v => '"' + String(v).replace(/"/g,'""') + '"';
-  const lines = [['Meno','Priezvisko','Druh zariadenia','Názov zariadenia','Vo vlastníctve','Preferencia'].map(cell).join(';')];
-  S.items.slice().sort((a,b) => collator.compare(a.priezvisko, b.priezvisko) || collator.compare(a.meno, b.meno))
-    .forEach(x => lines.push([x.meno, x.priezvisko, KL[x.druh], x.nazov, OL[x.vlastnictvo] || '', PL[x.preferencia] ? PL[x.preferencia].l : ''].map(cell).join(';')));
+  const lines = [['Meno','Druh zariadenia','Názov zariadenia','Vo vlastníctve','Preferencia'].map(cell).join(';')];
+  S.items.slice().sort((a,b) => collator.compare(a.meno, b.meno))
+    .forEach(x => lines.push([x.meno, KL[x.druh], x.nazov, OL[x.vlastnictvo] || '', PL[x.preferencia] ? PL[x.preferencia].l : ''].map(cell).join(';')));
   const url = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a');
   a.href = url; a.download = 'prehlad-techniky.csv';
@@ -311,7 +337,7 @@ function exportCsv(){
 /* ---------- events ---------- */
 $('#submit').addEventListener('click', submit);
 $('#cancelEdit').addEventListener('click', () => stopEdit());
-['fMeno','fPriez','fNazov'].forEach(id => $('#'+id).addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } }));
+['fNazov'].forEach(id => $('#'+id).addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } }));
 $('#form').addEventListener('input', e => {
   if(e.target.getAttribute('aria-invalid') === 'true' && e.target.value.trim()) e.target.setAttribute('aria-invalid','false');
   const fs = e.target.closest('fieldset'); if(fs) fs.classList.remove('fieldset-bad');
@@ -326,7 +352,7 @@ $('#tblWrap').addEventListener('click', e => {
   else if(b.dataset.del){
     const it = S.items.find(x => x.id === b.dataset.del); if(!canTouch(it)) return;
     delId = it.id;
-    $('#delText').textContent = it.meno + ' ' + it.priezvisko + ': ' + KL[it.druh] + ', ' + it.nazov;
+    $('#delText').textContent = it.meno + ': ' + KL[it.druh] + ', ' + it.nazov;
     const d = $('#delDlg'); if(typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open','');
   }
 });

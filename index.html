@@ -28,17 +28,15 @@
       <p class="sub">Zapíš každé zariadenie, ktoré používaš na prácu. Jedno zariadenie, jeden riadok.</p>
     </div>
     <div class="stats" id="stats"></div>
+    <p class="missing" id="missing" hidden></p>
   </section>
 
   <div class="layout">
     <section class="card form-card" aria-labelledby="formTitle">
       <h2 id="formTitle">Pridať zariadenie</h2>
-      <p class="hint" id="formHint">Meno a priezvisko si zapamätáme, ďalšie zariadenie pridáš rýchlejšie.</p>
+      <p class="hint" id="formHint">Vyber svoje meno a pridaj zariadenia jedno po druhom.</p>
       <div id="form">
-        <div class="row2">
-          <div class="field"><label for="fMeno">Meno</label><input class="inp" id="fMeno" maxlength="40" autocomplete="given-name"></div>
-          <div class="field"><label for="fPriez">Priezvisko</label><input class="inp" id="fPriez" maxlength="60" autocomplete="family-name"></div>
-        </div>
+        <div class="field"><label for="fKto">Kto si</label><select class="inp" id="fKto"></select></div>
         <fieldset class="field" id="fsDruh"><legend>Druh zariadenia</legend><div class="chips" id="cDruh"></div></fieldset>
         <div class="field"><label for="fNazov">Názov zariadenia</label><input class="inp" id="fNazov" maxlength="80" placeholder="napr. iPhone 14, Dell Latitude 5440"></div>
         <fieldset class="field" id="fsVl"><legend>Vo vlastníctve</legend><div class="chips" id="cVl"></div></fieldset>
