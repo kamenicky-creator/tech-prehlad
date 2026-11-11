@@ -8,15 +8,24 @@ const KINDS = [
   {v:'mobil', l:'Mobil'}, {v:'notebook', l:'Notebook'}, {v:'monitor', l:'Monitor'},
   {v:'tablet', l:'Tablet'}, {v:'ine', l:'Iné'}
 ];
+const STAV = [
+  {v:'nove', l:'Ako nové', d:'bez stôp používania', c:'st-nove'},
+  {v:'dobry', l:'Dobrý', d:'bežné stopy, funguje spoľahlivo', c:'st-dobry'},
+  {v:'opotrebovane', l:'Opotrebované', d:'viditeľne opotrebené alebo pomalšie, ale funguje', c:'st-opotr'},
+  {v:'vymenit', l:'Treba vymeniť', d:'poškodené alebo nespoľahlivé', c:'st-vym'}
+];
 const OWN = [{v:'osobne', l:'Osobné', c:'p-own'}, {v:'firemne', l:'Firemné', c:'p-firm'}];
 const PREF = [
   {v:'vlastne', l:'Chcem mať vlastné s firemným zabezpečením', s:'Vlastné so zabezpečením', c:'p-own'},
   {v:'firemne', l:'Chcem mať firemné', s:'Firemné', c:'p-firm'}
 ];
 const KL = Object.fromEntries(KINDS.map(k => [k.v, k.l]));
+const SL = Object.fromEntries(STAV.map(k => [k.v, k]));
 const OL = Object.fromEntries(OWN.map(k => [k.v, k.l]));
 const PL = Object.fromEntries(PREF.map(k => [k.v, k]));
+const SERVER_VERSION = 4; // verzia apps-script/Code.gs, s ktorou táto stránka počíta
 const ERR = {
+  old_server: 'Na serveri beží stará verzia Apps Scriptu. Nasaď v Apps Scripte novú verziu (Spravovať nasadenia › Nová verzia).',
   proxy_not_configured: 'Server nie je nastavený: vo Verceli chýba GAS_URL alebo GAS_KEY.',
   proxy_key_mismatch: 'Tímový kľúč vo Verceli (GAS_KEY) nesedí s kľúčom v Apps Scripte.',
   not_configured: 'V Apps Scripte ešte nie je vytvorený tímový kľúč.',
@@ -47,6 +56,7 @@ function clean(b){
     id: b.id.slice(0,40),
     meno: str(b.meno, 40),
     druh: KL[b.druh] ? b.druh : 'ine', nazov: str(b.nazov, 80),
+    stav: SL[b.stav] ? b.stav : '',
     vlastnictvo: OL[b.vlastnictvo] ? b.vlastnictvo : '',
     preferencia: PL[b.preferencia] ? b.preferencia : '',
     t: typeof b.t === 'number' ? b.t : 0,
@@ -94,6 +104,7 @@ async function refresh(){
   loading = true;
   try {
     const d = await api('list');
+    if(!(Number(d.v) >= SERVER_VERSION)) throw {code:'old_server'};
     if(!S.busy) applyItems(d);
     S.mode = 'live';
     if(S.err && S.err.indexOf('uložiť') === -1) S.err = '';
@@ -109,9 +120,10 @@ async function refresh(){
 
 /* ---------- form ---------- */
 function chipsHtml(name, opts, kindClass){
-  return opts.map(o => '<label class="chip '+(kindClass ? 'k-'+o.v : o.c)+'"><input type="radio" name="'+name+'" value="'+o.v+'"><span>'+esc(o.l)+'</span></label>').join('');
+  return opts.map(o => '<label class="chip '+(kindClass ? 'k-'+o.v : o.c)+'"><input type="radio" name="'+name+'" value="'+o.v+'"><span><i class="t">'+esc(o.l)+(o.d ? '<small>'+esc(o.d)+'</small>' : '')+'</i></span></label>').join('');
 }
 $('#cDruh').innerHTML = chipsHtml('druh', KINDS, true);
+$('#cStav').innerHTML = chipsHtml('stav', STAV);
 $('#cVl').innerHTML = chipsHtml('vl', OWN);
 $('#cPref').innerHTML = chipsHtml('pref', PREF);
 $('#fKind').innerHTML = '<option value="">Všetky druhy</option>' + KINDS.map(k => '<option value="'+k.v+'">'+k.l+'</option>').join('');
@@ -133,7 +145,7 @@ setRadio('pref', lsGet('pref') || '');
 function readForm(){
   return {
     meno: $('#fKto').value.slice(0,40),
-    druh: radio('druh'), nazov: $('#fNazov').value.trim().slice(0,80),
+    druh: radio('druh'), nazov: $('#fNazov').value.trim().slice(0,80), stav: radio('stav'),
     vlastnictvo: radio('vl'), preferencia: radio('pref')
   };
 }
@@ -141,7 +153,7 @@ function validate(d){
   const bad = [];
   const mark = (el, b) => { if(el.tagName === 'FIELDSET') el.classList.toggle('fieldset-bad', b); else el.setAttribute('aria-invalid', String(b)); if(b) bad.push(el); };
   mark($('#fKto'), !d.meno);
-  mark($('#fsDruh'), !d.druh); mark($('#fNazov'), !d.nazov);
+  mark($('#fsDruh'), !d.druh); mark($('#fNazov'), !d.nazov); mark($('#fsStav'), !d.stav);
   mark($('#fsVl'), !d.vlastnictvo); mark($('#fsPref'), !d.preferencia);
   if(bad.length){
     const f = bad[0], target = f.tagName === 'FIELDSET' ? f.querySelector('input') : f;
@@ -152,7 +164,7 @@ function validate(d){
   return true;
 }
 function resetDevice(){
-  $('#fNazov').value = ''; setRadio('druh',''); setRadio('vl',''); setRadio('pref', lsGet('pref') || '');
+  $('#fNazov').value = ''; setRadio('druh',''); setRadio('stav',''); setRadio('vl',''); setRadio('pref', lsGet('pref') || '');
   document.querySelectorAll('[aria-invalid]').forEach(el => el.setAttribute('aria-invalid','false'));
   document.querySelectorAll('.fieldset-bad').forEach(el => el.classList.remove('fieldset-bad'));
 }
@@ -161,7 +173,7 @@ function startEdit(id){
   if(!canTouch(it)) return;
   S.editId = id;
   renderKto(it.meno); $('#fNazov').value = it.nazov;
-  setRadio('druh', it.druh); setRadio('vl', it.vlastnictvo); setRadio('pref', it.preferencia);
+  setRadio('druh', it.druh); setRadio('stav', it.stav); setRadio('vl', it.vlastnictvo); setRadio('pref', it.preferencia);
   renderForm(); renderList();
   $('#fNazov').focus();
   if(window.matchMedia('(max-width:900px)').matches) $('#formTitle').scrollIntoView({behavior:'smooth', block:'start'});
@@ -264,6 +276,7 @@ function renderStats(){
   $('#stats').innerHTML = S.loaded ? (
     st(it.length, plural(it.length)) +
     st(people(it) + (S.team.length ? '<small> / '+S.team.length+'</small>' : ''), 'ľudí sa zapísalo') +
+    st(it.filter(x => x.stav === 'vymenit').length, 'treba vymeniť', 'nem') +
     st(it.filter(x => x.vlastnictvo === 'osobne').length, 'osobných', 'ho') +
     st(it.filter(x => x.vlastnictvo === 'firemne').length, 'firemných', 'o') +
     st(it.filter(x => x.preferencia === 'vlastne').length, 'chce vlastné so zabezpečením', 'ho') +
@@ -302,13 +315,14 @@ function renderList(){
     wrap.innerHTML = '<div class="empty"><p>Filtru nezodpovedá žiadne zariadenie.</p></div>';
     $('#foot').textContent = ''; return;
   }
-  let h = '<table><thead><tr><th scope="col">Meno</th><th scope="col">Druh</th><th scope="col">Názov zariadenia</th><th scope="col">Vo vlastníctve</th><th scope="col">Preferencia</th><th scope="col" aria-label="Akcie"></th></tr></thead><tbody>';
+  let h = '<table><thead><tr><th scope="col">Meno</th><th scope="col">Druh</th><th scope="col">Názov zariadenia</th><th scope="col">Stav</th><th scope="col">Vo vlastníctve</th><th scope="col" class="th-pref">Preferencia</th><th scope="col" aria-label="Akcie"></th></tr></thead><tbody>';
   rows.forEach(x => {
     const p = PL[x.preferencia];
     h += '<tr'+(x.id === S.editId ? ' class="editing"' : '')+'>' +
       '<td class="who">'+esc(x.meno)+'</td>' +
       '<td><span class="tag k-'+x.druh+'">'+KL[x.druh]+'</span></td>' +
       '<td class="dev">'+esc(x.nazov)+'</td>' +
+      '<td>'+(SL[x.stav] ? '<span class="tag '+SL[x.stav].c+'">'+SL[x.stav].l+'</span>' : '<span class="plain">–</span>')+'</td>' +
       '<td class="plain">'+(OL[x.vlastnictvo] || '–')+'</td>' +
       '<td class="pref">'+(p ? esc(p.s) : '–')+'</td>' +
       '<td class="ops">'+(canTouch(x) ? '<button class="btn small" data-edit="'+esc(x.id)+'">Upraviť</button> <button class="btn small danger" data-del="'+esc(x.id)+'">Odstrániť</button>' : '')+'</td>' +
@@ -324,9 +338,9 @@ function renderList(){
 /* ---------- export ---------- */
 function exportCsv(){
   const cell = v => '"' + String(v).replace(/"/g,'""') + '"';
-  const lines = [['Meno','Druh zariadenia','Názov zariadenia','Vo vlastníctve','Preferencia'].map(cell).join(';')];
+  const lines = [['Meno','Druh zariadenia','Názov zariadenia','Stav','Vo vlastníctve','Preferencia'].map(cell).join(';')];
   S.items.slice().sort((a,b) => collator.compare(a.meno, b.meno))
-    .forEach(x => lines.push([x.meno, KL[x.druh], x.nazov, OL[x.vlastnictvo] || '', PL[x.preferencia] ? PL[x.preferencia].l : ''].map(cell).join(';')));
+    .forEach(x => lines.push([x.meno, KL[x.druh], x.nazov, SL[x.stav] ? SL[x.stav].l : '', OL[x.vlastnictvo] || '', PL[x.preferencia] ? PL[x.preferencia].l : ''].map(cell).join(';')));
   const url = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a');
   a.href = url; a.download = 'prehlad-techniky.csv';
