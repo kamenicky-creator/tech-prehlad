@@ -2,7 +2,8 @@
  * Prehľad techniky: server v Google Apps Scripte.
  *
  * Dáta sú v Google tabuľke, ku ktorej je skript pripojený:
- *   hárok „Technika“  id | meno | priezvisko | druh | nazov | vlastnictvo | preferencia | pridane | upravene | vlastnik
+ *   hárok „Technika“  id | meno | druh | nazov | vlastnictvo | preferencia | pridane | upravene | vlastnik
+ *   hárok „Tím“       id | meno | aktivny   zoznam mien, z ktorých sa v prehľade vyberá
  *
  * Stĺpec „vlastnik“ je interný identifikátor prehliadača, z ktorého bol záznam pridaný.
  * Bežný člen tímu môže upraviť a odstrániť len svoje záznamy, správca všetky.
@@ -17,8 +18,10 @@ const SPREADSHEET_ID = '';   // ID Google tabuľky s dátami; prázdne = tabuľk
 const DEFAULT_TEAM_KEY = ''; // tímový kľúč, ak ho nevytváraš funkciou vytvorTimovyKluc
 
 const SHEET = 'Technika';
-const HEAD = ['id', 'meno', 'priezvisko', 'druh', 'nazov', 'vlastnictvo', 'preferencia', 'pridane', 'upravene', 'vlastnik'];
-const DATA_COLS = 8; // meno … upravene, bez id a vlastníka
+const TEAM_SHEET = 'Tím';
+const HEAD = ['id', 'meno', 'druh', 'nazov', 'vlastnictvo', 'preferencia', 'pridane', 'upravene', 'vlastnik'];
+const DATA_COLS = 7;    // meno … upravene, bez id a vlastníka
+const CREATED_COL = 7;  // stĺpec „pridane“
 const ID_RE = /^[A-Za-z0-9_-]{6,40}$/;
 const CID_RE = /^[A-Za-z0-9_-]{16,64}$/;
 const MAX_ROWS = 2000;
@@ -90,19 +93,49 @@ function sheet_() {
     sh.getRange(1, 1, 1, HEAD.length).setValues([HEAD]).setFontWeight('bold');
     sh.setFrozenRows(1);
     const list = function (vals) { return SpreadsheetApp.newDataValidation().requireValueInList(vals, true).setAllowInvalid(false).build(); };
-    sh.getRange(2, 4, sh.getMaxRows() - 1, 1).setDataValidation(list(values_(DRUH)));
-    sh.getRange(2, 6, sh.getMaxRows() - 1, 1).setDataValidation(list(values_(VLAST)));
-    sh.getRange(2, 7, sh.getMaxRows() - 1, 1).setDataValidation(list(values_(PREF)));
-    sh.getRange(2, 8, sh.getMaxRows() - 1, 2).setNumberFormat('d.M.yyyy H:mm');
+    sh.getRange(2, 3, sh.getMaxRows() - 1, 1).setDataValidation(list(values_(DRUH)));
+    sh.getRange(2, 5, sh.getMaxRows() - 1, 1).setDataValidation(list(values_(VLAST)));
+    sh.getRange(2, 6, sh.getMaxRows() - 1, 1).setDataValidation(list(values_(PREF)));
+    sh.getRange(2, 7, sh.getMaxRows() - 1, 2).setNumberFormat('d.M.yyyy H:mm');
     sh.setColumnWidth(1, 90);
     sh.setColumnWidths(2, 2, 130);
-    sh.setColumnWidth(5, 200);
-    sh.setColumnWidth(7, 300);
+    sh.setColumnWidth(4, 200);
+    sh.setColumnWidth(6, 300);
   }
   if (String(sh.getRange(1, HEAD.length).getValue()) !== HEAD[HEAD.length - 1]) {
     sh.getRange(1, HEAD.length).setValue(HEAD[HEAD.length - 1]).setFontWeight('bold');
   }
   return sh;
+}
+
+/* ---------- tím ---------- */
+
+function teamSheet_() {
+  const ss = ss_();
+  let sh = ss.getSheetByName(TEAM_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(TEAM_SHEET);
+    sh.getRange(1, 1, 1, 3).setValues([['id', 'meno', 'aktivny']]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+// Aktívne mená v poradí z hárku „Tím“.
+function readTeam_() {
+  const sh = teamSheet_();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  const seen = {};
+  const out = [];
+  sh.getRange(2, 1, last - 1, 3).getValues().forEach(function (r) {
+    const name = String(r[1]).trim().slice(0, 40);
+    const a = String(r[2]).trim().toLowerCase();
+    if (!name || seen[name] || r[2] === false || a === 'false' || a === 'nie' || a === '0') return;
+    seen[name] = true;
+    out.push({id: String(r[0]).trim() || name, name: name});
+  });
+  return out;
 }
 
 function values_(map) {
@@ -127,17 +160,16 @@ function readAll_() {
   const out = [];
   vals.forEach(function (r) {
     const id = String(r[0]).trim();
-    if (!id && !String(r[1]).trim() && !String(r[4]).trim()) return; // prázdny riadok
+    if (!id && !String(r[1]).trim() && !String(r[3]).trim()) return; // prázdny riadok
     out.push({
       id: id,
       meno: String(r[1]).trim().slice(0, 40),
-      priezvisko: String(r[2]).trim().slice(0, 60),
-      druh: toCode_(DRUH, r[3]) || 'ine',
-      nazov: String(r[4]).trim().slice(0, 80),
-      vlastnictvo: toCode_(VLAST, r[5]),
-      preferencia: toCode_(PREF, r[6]),
-      t: r[7] instanceof Date ? r[7].getTime() : 0,
-      o: String(r[9]).trim()
+      druh: toCode_(DRUH, r[2]) || 'ine',
+      nazov: String(r[3]).trim().slice(0, 80),
+      vlastnictvo: toCode_(VLAST, r[4]),
+      preferencia: toCode_(PREF, r[5]),
+      t: r[6] instanceof Date ? r[6].getTime() : 0,
+      o: String(r[8]).trim()
     });
   });
   // Riadky pridané ručne bez id dostanú id, aby sa dali upraviť aj v aplikácii.
@@ -156,8 +188,8 @@ function readAll_() {
 // Zoznam pre prehliadač: bez identifikátora vlastníka, len s príznakom, či záznam patrí tomuto prehliadaču.
 function listFor_(req) {
   const cid = cidOf_(req);
-  return {items: readAll_().map(function (it) {
-    return {id: it.id, meno: it.meno, priezvisko: it.priezvisko, druh: it.druh, nazov: it.nazov,
+  return {team: readTeam_(), items: readAll_().map(function (it) {
+    return {id: it.id, meno: it.meno, druh: it.druh, nazov: it.nazov,
       vlastnictvo: it.vlastnictvo, preferencia: it.preferencia, t: it.t, mine: !!cid && it.o === cid};
   })};
 }
@@ -176,22 +208,25 @@ function checkOwner_(row, req) {
   if (!cid || owner !== cid) throw {code: 'forbidden'};
 }
 
-function clean_(item) {
+// keepName: pri úprave môže zostať aj meno, ktoré už v zozname tímu nie je.
+function clean_(item, keepName) {
   if (!item || typeof item !== 'object') throw {code: 'bad_request'};
   const s = function (v, n) { return String(v == null ? '' : v).trim().slice(0, n); };
   const c = {
-    meno: s(item.meno, 40), priezvisko: s(item.priezvisko, 60), nazov: s(item.nazov, 80),
+    meno: s(item.meno, 40), nazov: s(item.nazov, 80),
     druh: DRUH[item.druh] ? item.druh : '', vlastnictvo: VLAST[item.vlastnictvo] ? item.vlastnictvo : '',
     preferencia: PREF[item.preferencia] ? item.preferencia : ''
   };
-  if (!c.meno || !c.priezvisko || !c.nazov || !c.druh || !c.vlastnictvo || !c.preferencia) throw {code: 'bad_request'};
+  if (!c.meno || !c.nazov || !c.druh || !c.vlastnictvo || !c.preferencia) throw {code: 'bad_request'};
+  const inTeam = readTeam_().some(function (m) { return m.name === c.meno; });
+  if (!inTeam && c.meno !== keepName) throw {code: 'unknown_member'};
   // Zabráni tomu, aby sa text vložený do tabuľky správal ako vzorec.
-  ['meno', 'priezvisko', 'nazov'].forEach(function (k) { if (/^[=+\-@]/.test(c[k])) c[k] = "'" + c[k]; });
+  if (/^[=+\-@]/.test(c.nazov)) c.nazov = "'" + c.nazov;
   return c;
 }
 
 function rowOf_(c, created, updated) {
-  return [c.meno, c.priezvisko, DRUH[c.druh], c.nazov, VLAST[c.vlastnictvo], PREF[c.preferencia], created, updated];
+  return [c.meno, DRUH[c.druh], c.nazov, VLAST[c.vlastnictvo], PREF[c.preferencia], created, updated];
 }
 
 function findRow_(id) {
@@ -213,12 +248,12 @@ function addItem_(item, req) {
 }
 
 function updateItem_(id, item, req) {
-  const c = clean_(item);
   const row = findRow_(id);
   if (!row) throw {code: 'not_found'};
   checkOwner_(row, req);
   const sh = sheet_();
-  const created = sh.getRange(row, 8).getValue();
+  const c = clean_(item, String(sh.getRange(row, 2).getValue()).trim());
+  const created = sh.getRange(row, CREATED_COL).getValue();
   sh.getRange(row, 2, 1, DATA_COLS).setValues([rowOf_(c, created instanceof Date ? created : new Date(), new Date())]);
 }
 
