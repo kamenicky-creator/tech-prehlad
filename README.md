@@ -6,7 +6,7 @@ Tímový prehľad zariadení, ktoré kolegovia používajú na prácu. Každý z
 - Druh zariadenia: Mobil, Notebook, Monitor, Tablet, Iné
 - Vo vlastníctve: Osobné, Firemné
 - Preferencia: Chcem mať vlastné s firemným zabezpečením, Chcem mať firemné
-- Záznamy sa dajú upraviť aj odstrániť, zoznam sa dá stiahnuť ako CSV
+- Každý upraví a odstráni svoje zariadenia, správca všetky a môže zoznam stiahnuť ako CSV
 - Funguje na počítači aj v mobile, vo svetlom aj tmavom režime
 
 Rovnako ako HO kalendár beží prehľad na Verceli za spoločným tímovým heslom. Kolegovia nepotrebujú žiadny účet (Google, Microsoft ani Claude), stačí im adresa a heslo. Dáta sú v Google tabuľke, ku ktorej je pripojený malý server v Google Apps Scripte. Prehliadač komunikuje len s Vercelom: adresa Apps Scriptu a tímový kľúč zostávajú na serveri.
@@ -45,6 +45,7 @@ Prístup „Ktokoľvek“ je potrebný, aby sa na server dostal Vercel. Bez tím
    | Premenná | Hodnota |
    | --- | --- |
    | `APP_PASSWORD` | tímové heslo na prihlásenie |
+   | `ADMIN_PASSWORD` | heslo správcu: môže upraviť a odstrániť všetky zariadenia a stiahnuť CSV |
    | `GAS_URL` | URL webovej aplikácie z Apps Scriptu (končí na `/exec`) |
    | `GAS_KEY` | tímový kľúč z Apps Scriptu |
    | `SESSION_SECRET` | voliteľné: ľubovoľný náhodný text na podpis prihlásenia |
@@ -55,17 +56,19 @@ Prístup „Ktokoľvek“ je potrebný, aby sa na server dostal Vercel. Bez tím
 
 Pošli kolegom adresu prehľadu a tímové heslo. Po prihlásení zapíše každý svoje zariadenia. Prehliadač si prihlásenie zapamätá na 30 dní a pamätá si aj meno a priezvisko, takže ďalšie zariadenie sa pridá rýchlejšie.
 
-Kto pozná tímové heslo, môže upraviť alebo odstrániť ktorékoľvek zariadenie. Je to rovnaké ako pri zdieľanej tabuľke: bráni to omylom, nie zámernej zmene.
+Člen tímu môže upraviť a odstrániť len zariadenia, ktoré pridal v tom istom prehliadači. Prehliadač sa rozpozná podľa náhodného identifikátora v cookie (platí 2 roky a prežije aj odhlásenie). Kto si zmení počítač alebo vymaže cookies, svoje staršie záznamy už neupraví, požiada správcu.
+
+Správca sa prihlási na tej istej stránke heslom z `ADMIN_PASSWORD`. Vpravo hore uvidí štítok „Správca“, môže upraviť a odstrániť všetky zariadenia a stiahnuť zoznam ako CSV.
 
 ## Dáta v Google tabuľke
 
-Hárok **Technika** má stĺpce `id`, `meno`, `priezvisko`, `druh`, `nazov`, `vlastnictvo`, `preferencia`, `pridane`, `upravene`. Hodnoty sú zapísané čitateľne (napríklad „Mobil“, „Osobné“, „Chcem mať firemné“) a stĺpce s výberom majú rozbaľovací zoznam.
+Hárok **Technika** má stĺpce `id`, `meno`, `priezvisko`, `druh`, `nazov`, `vlastnictvo`, `preferencia`, `pridane`, `upravene`, `vlastnik`. Hodnoty sú zapísané čitateľne (napríklad „Mobil“, „Osobné“, „Chcem mať firemné“) a stĺpce s výberom majú rozbaľovací zoznam.
 
-Tabuľku môžeš upravovať aj ručne, prehľad zmeny načíta do minúty. Ručne pridaný riadok bez `id` dostane `id` automaticky pri ďalšom načítaní. Stĺpec `id` neupravuj.
+Tabuľku môžeš upravovať aj ručne, prehľad zmeny načíta do minúty. Ručne pridaný riadok bez `id` dostane `id` automaticky pri ďalšom načítaní a v prehľade ho môže meniť len správca. Stĺpce `id` a `vlastnik` neupravuj.
 
 ## Bežná údržba
 
-- **Zmena hesla:** zmeň `APP_PASSWORD` a daj Redeploy. Všetci sa musia prihlásiť znova.
+- **Zmena hesla:** zmeň `APP_PASSWORD` alebo `ADMIN_PASSWORD` a daj Redeploy. Všetci sa musia prihlásiť znova, svoje záznamy budú môcť upravovať ďalej.
 - **Odhlásenie všetkých bez zmeny hesla:** zmeň `SESSION_SECRET` a daj Redeploy.
 - **Zmena tímového kľúča:** spusti znova `vytvorTimovyKluc`, nový kľúč vlož do `GAS_KEY` a daj Redeploy.
 - **Úprava servera:** po zmene `Code.gs` otvor **Nasadiť › Spravovať nasadenia**, uprav existujúce nasadenie a zvoľ **Nová verzia**. URL zostane rovnaká.
