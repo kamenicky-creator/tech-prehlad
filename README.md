@@ -2,7 +2,8 @@
 
 Tímový prehľad zariadení, ktoré kolegovia používajú na prácu. Každý zapíše svoje zariadenia cez formulár, jedno zariadenie na jeden riadok. Hore sú súčty, pod tým zoznam všetkých zariadení s filtrom a vyhľadávaním.
 
-- Polia: Meno, Priezvisko, Druh zariadenia, Názov zariadenia, Vo vlastníctve, Preferencia
+- Polia: Meno (výber zo zoznamu tímu), Druh zariadenia, Názov zariadenia, Vo vlastníctve, Preferencia
+- Hore je vidieť, kto z tímu sa ešte nezapísal
 - Druh zariadenia: Mobil, Notebook, Monitor, Tablet, Iné
 - Vo vlastníctve: Osobné, Firemné
 - Preferencia: Chcem mať vlastné s firemným zabezpečením, Chcem mať firemné
@@ -27,7 +28,7 @@ Rovnako ako HO kalendár beží prehľad na Verceli za spoločným tímovým hes
 
 ### 1. Google tabuľka a Apps Script
 
-1. Vytvor novú prázdnu Google tabuľku, napríklad „Prehľad techniky – dáta“. Hárok „Technika“ vznikne sám.
+1. Vytvor novú prázdnu Google tabuľku, napríklad „Prehľad techniky – dáta“. Hárky „Technika“ a „Tím“ vzniknú samé, do hárku „Tím“ potom doplň mená (pozri nižšie).
 2. V tabuľke otvor **Rozšírenia › Apps Script**, obsah `Kód.gs` nahraď obsahom `apps-script/Code.gs` a ulož.
 3. Tímový kľúč: hore vyber funkciu `vytvorTimovyKluc`, klikni na **Spustiť** a povoľ prístup. Kľúč nájdeš v protokole spustenia.
 4. Klikni na **Nasadiť › Nové nasadenie**, typ **Webová aplikácia**:
@@ -54,7 +55,7 @@ Prístup „Ktokoľvek“ je potrebný, aby sa na server dostal Vercel. Bez tím
 
 ### 3. Tím
 
-Pošli kolegom adresu prehľadu a tímové heslo. Po prihlásení zapíše každý svoje zariadenia. Prehliadač si prihlásenie zapamätá na 30 dní a pamätá si aj meno a priezvisko, takže ďalšie zariadenie sa pridá rýchlejšie.
+Pošli kolegom adresu prehľadu a tímové heslo. Po prihlásení si každý vyberie svoje meno zo zoznamu a zapíše svoje zariadenia. Prehliadač si prihlásenie zapamätá na 30 dní. Meno sa vopred nevyberá, aby na zdieľanom počítači nezostalo meno niekoho iného.
 
 Člen tímu môže upraviť a odstrániť len zariadenia, ktoré pridal v tom istom prehliadači. Prehliadač sa rozpozná podľa náhodného identifikátora v cookie (platí 2 roky a prežije aj odhlásenie). Kto si zmení počítač alebo vymaže cookies, svoje staršie záznamy už neupraví, požiada správcu.
 
@@ -62,7 +63,9 @@ Správca sa prihlási na tej istej stránke heslom z `ADMIN_PASSWORD`. Vpravo ho
 
 ## Dáta v Google tabuľke
 
-Hárok **Technika** má stĺpce `id`, `meno`, `priezvisko`, `druh`, `nazov`, `vlastnictvo`, `preferencia`, `pridane`, `upravene`, `vlastnik`. Hodnoty sú zapísané čitateľne (napríklad „Mobil“, „Osobné“, „Chcem mať firemné“) a stĺpce s výberom majú rozbaľovací zoznam.
+Hárok **Technika** má stĺpce `id`, `meno`, `druh`, `nazov`, `vlastnictvo`, `preferencia`, `pridane`, `upravene`, `vlastnik`. Hodnoty sú zapísané čitateľne (napríklad „Mobil“, „Osobné“, „Chcem mať firemné“) a stĺpce s výberom majú rozbaľovací zoznam.
+
+Hárok **Tím** má stĺpce `id`, `meno`, `aktivny` (rovnako ako v HO kalendári). Mená z neho sa ponúkajú vo formulári v tomto poradí. Nového kolegu pridáš novým riadkom, odchádzajúcemu nastav `aktivny` na FALSE: zmizne z výberu, jeho záznamy zostanú. Zmena sa v prehľade prejaví do minúty.
 
 Tabuľku môžeš upravovať aj ručne, prehľad zmeny načíta do minúty. Ručne pridaný riadok bez `id` dostane `id` automaticky pri ďalšom načítaní a v prehľade ho môže meniť len správca. Stĺpce `id` a `vlastnik` neupravuj.
 
