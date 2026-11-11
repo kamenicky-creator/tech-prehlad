@@ -139,3 +139,4 @@ dialog p{margin:0 0 18px;color:var(--ink-2)}
 .top-right{display:inline-flex;align-items:baseline;gap:18px;flex-wrap:wrap}
 .logout{color:var(--ink-2);text-decoration:underline;text-underline-offset:3px}
 .logout:hover{color:var(--ink)}
+.role{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:7px;background:var(--ink);color:var(--surface);font-size:.8125rem;font-weight:650}
