@@ -2,7 +2,10 @@
  * Prehľad techniky: server v Google Apps Scripte.
  *
  * Dáta sú v Google tabuľke, ku ktorej je skript pripojený:
- *   hárok „Technika“  id | meno | priezvisko | druh | nazov | vlastnictvo | preferencia | pridane | upravene
+ *   hárok „Technika“  id | meno | priezvisko | druh | nazov | vlastnictvo | preferencia | pridane | upravene | vlastnik
+ *
+ * Stĺpec „vlastnik“ je interný identifikátor prehliadača, z ktorého bol záznam pridaný.
+ * Bežný člen tímu môže upraviť a odstrániť len svoje záznamy, správca všetky.
  *
  * Jeden riadok = jedno zariadenie. Tabuľku môžeš upravovať aj ručne,
  * prehľad zmeny načíta pri ďalšej synchronizácii (do minúty).
@@ -14,8 +17,10 @@ const SPREADSHEET_ID = '';   // ID Google tabuľky s dátami; prázdne = tabuľk
 const DEFAULT_TEAM_KEY = ''; // tímový kľúč, ak ho nevytváraš funkciou vytvorTimovyKluc
 
 const SHEET = 'Technika';
-const HEAD = ['id', 'meno', 'priezvisko', 'druh', 'nazov', 'vlastnictvo', 'preferencia', 'pridane', 'upravene'];
+const HEAD = ['id', 'meno', 'priezvisko', 'druh', 'nazov', 'vlastnictvo', 'preferencia', 'pridane', 'upravene', 'vlastnik'];
+const DATA_COLS = 8; // meno … upravene, bez id a vlastníka
 const ID_RE = /^[A-Za-z0-9_-]{6,40}$/;
+const CID_RE = /^[A-Za-z0-9_-]{16,64}$/;
 const MAX_ROWS = 2000;
 
 // Kód v aplikácii → text v tabuľke. Do tabuľky sa zapisuje čitateľný text.
@@ -42,13 +47,13 @@ function doPost(e) {
   try {
     switch (req.action) {
       case 'list':
-        return out_({ok: true, data: withLock_(function () { return {items: readAll_()}; })});
+        return out_({ok: true, data: withLock_(function () { return listFor_(req); })});
       case 'add':
-        return out_({ok: true, data: withLock_(function () { addItem_(req.item); return {items: readAll_()}; })});
+        return out_({ok: true, data: withLock_(function () { addItem_(req.item, req); return listFor_(req); })});
       case 'update':
-        return out_({ok: true, data: withLock_(function () { updateItem_(req.id, req.item); return {items: readAll_()}; })});
+        return out_({ok: true, data: withLock_(function () { updateItem_(req.id, req.item, req); return listFor_(req); })});
       case 'delete':
-        return out_({ok: true, data: withLock_(function () { deleteItem_(req.id); return {items: readAll_()}; })});
+        return out_({ok: true, data: withLock_(function () { deleteItem_(req.id, req); return listFor_(req); })});
       default:
         return out_({ok: false, error: 'bad_request'});
     }
@@ -94,6 +99,9 @@ function sheet_() {
     sh.setColumnWidth(5, 200);
     sh.setColumnWidth(7, 300);
   }
+  if (String(sh.getRange(1, HEAD.length).getValue()) !== HEAD[HEAD.length - 1]) {
+    sh.getRange(1, HEAD.length).setValue(HEAD[HEAD.length - 1]).setFontWeight('bold');
+  }
   return sh;
 }
 
@@ -128,7 +136,8 @@ function readAll_() {
       nazov: String(r[4]).trim().slice(0, 80),
       vlastnictvo: toCode_(VLAST, r[5]),
       preferencia: toCode_(PREF, r[6]),
-      t: r[7] instanceof Date ? r[7].getTime() : 0
+      t: r[7] instanceof Date ? r[7].getTime() : 0,
+      o: String(r[9]).trim()
     });
   });
   // Riadky pridané ručne bez id dostanú id, aby sa dali upraviť aj v aplikácii.
@@ -142,6 +151,29 @@ function readAll_() {
   });
   if (fixed) SpreadsheetApp.flush();
   return out;
+}
+
+// Zoznam pre prehliadač: bez identifikátora vlastníka, len s príznakom, či záznam patrí tomuto prehliadaču.
+function listFor_(req) {
+  const cid = cidOf_(req);
+  return {items: readAll_().map(function (it) {
+    return {id: it.id, meno: it.meno, priezvisko: it.priezvisko, druh: it.druh, nazov: it.nazov,
+      vlastnictvo: it.vlastnictvo, preferencia: it.preferencia, t: it.t, mine: !!cid && it.o === cid};
+  })};
+}
+
+function cidOf_(req) {
+  const c = String(req && req.cid || '');
+  return CID_RE.test(c) ? c : '';
+}
+
+const isAdmin_ = req => !!req && req.role === 'a';
+
+function checkOwner_(row, req) {
+  if (isAdmin_(req)) return;
+  const cid = cidOf_(req);
+  const owner = String(sheet_().getRange(row, HEAD.length).getValue()).trim();
+  if (!cid || owner !== cid) throw {code: 'forbidden'};
 }
 
 function clean_(item) {
@@ -172,26 +204,29 @@ function findRow_(id) {
   return 0;
 }
 
-function addItem_(item) {
+function addItem_(item, req) {
   const c = clean_(item);
   const sh = sheet_();
   if (sh.getLastRow() - 1 >= MAX_ROWS) throw {code: 'quota_exceeded'};
   const now = new Date();
-  sh.appendRow([newId_()].concat(rowOf_(c, now, now)));
+  sh.appendRow([newId_()].concat(rowOf_(c, now, now), [cidOf_(req)]));
 }
 
-function updateItem_(id, item) {
+function updateItem_(id, item, req) {
   const c = clean_(item);
   const row = findRow_(id);
   if (!row) throw {code: 'not_found'};
+  checkOwner_(row, req);
   const sh = sheet_();
   const created = sh.getRange(row, 8).getValue();
-  sh.getRange(row, 2, 1, HEAD.length - 1).setValues([rowOf_(c, created instanceof Date ? created : new Date(), new Date())]);
+  sh.getRange(row, 2, 1, DATA_COLS).setValues([rowOf_(c, created instanceof Date ? created : new Date(), new Date())]);
 }
 
-function deleteItem_(id) {
+function deleteItem_(id, req) {
   const row = findRow_(id);
-  if (row) sheet_().deleteRow(row);
+  if (!row) return;
+  checkOwner_(row, req);
+  sheet_().deleteRow(row);
 }
 
 /* ---------- pomocné ---------- */
