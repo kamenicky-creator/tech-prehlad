@@ -218,3 +218,12 @@ dialog p{margin:0 0 18px;color:var(--ink-2)}
 :root[data-theme="dark"] .tag.st-dobry{color:var(--white);--mf:var(--gr);--me:rgba(255,255,255,.2)}
 :root[data-theme="dark"] .tag.st-opotr{color:var(--white);--mf:var(--pk);--me:rgba(255,255,255,.2)}
 :root[data-theme="dark"] .chip .meter{--me:rgba(255,255,255,.2)}
+
+/* ---------- zoradenie v hlavičke tabuľky ---------- */
+button.sort{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;cursor:pointer;font:inherit;color:inherit;border-radius:6px;padding:2px 4px;margin:-2px -4px}
+button.sort:hover{background:var(--hover)}
+button.sort:focus-visible{outline:2px solid var(--gr);outline-offset:1px}
+button.sort .arr{font-size:.85em;opacity:.35;font-family:var(--f-body)}
+button.sort.on .arr{opacity:1;color:var(--gr)}
+@media (prefers-color-scheme: light){ button.sort.on .arr{color:#03A85A} }
+:root[data-theme="light"] button.sort.on .arr{color:#03A85A}
