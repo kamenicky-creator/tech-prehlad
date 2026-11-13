@@ -55,8 +55,39 @@ const str = (v, n) => typeof v === 'string' ? v.trim().slice(0, n) : '';
 const fold = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const collator = new Intl.Collator('sk', {sensitivity:'base'});
 
-const S = { mode:'loading', role:'u', team:[], kto:'', items:[], loaded:false, err:'', busy:0, editId:null, q:'', kind:'', lastOk:0 };
+const S = { mode:'loading', role:'u', team:[], kto:'', items:[], loaded:false, err:'', busy:0, editId:null, q:'', kind:'', lastOk:0, sort:{key:'meno', dir:1} };
 let delId = null;
+
+/* ---------- zoradenie ---------- */
+const idx = (list, v) => { const i = list.findIndex(o => o.v === v); return i < 0 ? 99 : i; };
+const SORTS = {
+  meno: (a,b) => collator.compare(a.meno, b.meno),
+  druh: (a,b) => idx(KINDS, a.druh) - idx(KINDS, b.druh),
+  nazov: (a,b) => collator.compare(a.nazov, b.nazov),
+  stav: (a,b) => idx(STAV, a.stav) - idx(STAV, b.stav),
+  vlastnictvo: (a,b) => idx(OWN, a.vlastnictvo) - idx(OWN, b.vlastnictvo),
+  preferencia: (a,b) => idx(PREF, a.preferencia) - idx(PREF, b.preferencia)
+};
+const COLS = [
+  {k:'meno', l:'Meno'}, {k:'druh', l:'Druh'}, {k:'nazov', l:'Názov zariadenia'},
+  {k:'stav', l:'Stav'}, {k:'vlastnictvo', l:'Vo vlastníctve'}, {k:'preferencia', l:'Preferencia', cls:'th-pref'}
+];
+try {
+  const saved = JSON.parse(lsGet('sort') || 'null');
+  if(saved && SORTS[saved.key] && (saved.dir === 1 || saved.dir === -1)) S.sort = saved;
+} catch(e){}
+// Prázdne hodnoty idú vždy na koniec, pri zhode rozhoduje meno, druh a poradie pridania.
+function sorted(list){
+  const {key, dir} = S.sort, f = SORTS[key] || SORTS.meno;
+  const empty = x => key === 'stav' ? !x.stav : key === 'vlastnictvo' ? !x.vlastnictvo : key === 'preferencia' ? !x.preferencia : false;
+  return list.slice().sort((a,b) => (empty(a) - empty(b)) || dir * f(a,b) || SORTS.meno(a,b) || SORTS.druh(a,b) || a.t - b.t);
+}
+function setSort(key){
+  S.sort = S.sort.key === key ? {key, dir: -S.sort.dir} : {key, dir: 1};
+  lsSet('sort', JSON.stringify(S.sort));
+  renderList();
+  const b = document.querySelector('button.sort[data-sort="'+key+'"]'); if(b) b.focus();
+}
 
 if(CFG.teamName){ $('#brand').textContent = CFG.teamName + ': prehľad techniky'; document.title = CFG.teamName + ': prehľad techniky'; }
 
@@ -319,8 +350,7 @@ function renderList(){
   const q = fold(S.q);
   const rows = S.items
     .filter(x => !S.kind || x.druh === S.kind)
-    .filter(x => !q || fold(x.meno+' '+x.nazov+' '+KL[x.druh]).indexOf(q) !== -1)
-    .sort((a,b) => collator.compare(a.meno, b.meno) || KINDS.findIndex(k => k.v === a.druh) - KINDS.findIndex(k => k.v === b.druh) || a.t - b.t);
+    .filter(x => !q || fold(x.meno+' '+x.nazov+' '+KL[x.druh]).indexOf(q) !== -1);
   if(!S.items.length){
     wrap.innerHTML = '<div class="empty"><p>Zatiaľ tu nie je žiadne zariadenie. Pridaj prvé vo formulári.</p></div>';
     $('#foot').textContent = ''; return;
@@ -329,8 +359,12 @@ function renderList(){
     wrap.innerHTML = '<div class="empty"><p>Filtru nezodpovedá žiadne zariadenie.</p></div>';
     $('#foot').textContent = ''; return;
   }
-  let h = '<table><thead><tr><th scope="col">Meno</th><th scope="col">Druh</th><th scope="col">Názov zariadenia</th><th scope="col">Stav</th><th scope="col">Vo vlastníctve</th><th scope="col" class="th-pref">Preferencia</th><th scope="col" aria-label="Akcie"></th></tr></thead><tbody>';
-  rows.forEach(x => {
+  let h = '<table><thead><tr>' + COLS.map(c => {
+    const on = S.sort.key === c.k;
+    const aria = on ? (S.sort.dir === 1 ? 'ascending' : 'descending') : 'none';
+    return '<th scope="col"'+(c.cls ? ' class="'+c.cls+'"' : '')+' aria-sort="'+aria+'"><button type="button" class="sort'+(on ? ' on' : '')+'" data-sort="'+c.k+'" title="Zoradiť podľa: '+c.l+'">'+c.l+'<span class="arr" aria-hidden="true">'+(on ? (S.sort.dir === 1 ? '↑' : '↓') : '↕')+'</span></button></th>';
+  }).join('') + '<th scope="col" aria-label="Akcie"></th></tr></thead><tbody>';
+  sorted(rows).forEach(x => {
     const p = PL[x.preferencia];
     h += '<tr'+(x.id === S.editId ? ' class="editing"' : '')+'>' +
       '<td class="who">'+esc(x.meno)+'</td>' +
@@ -353,7 +387,7 @@ function renderList(){
 function exportCsv(){
   const cell = v => '"' + String(v).replace(/"/g,'""') + '"';
   const lines = [['Meno','Druh zariadenia','Názov zariadenia','Stav','Vo vlastníctve','Preferencia'].map(cell).join(';')];
-  S.items.slice().sort((a,b) => collator.compare(a.meno, b.meno))
+  sorted(S.items)
     .forEach(x => lines.push([x.meno, KL[x.druh], x.nazov, SL[x.stav] ? SL[x.stav].l : '', OL[x.vlastnictvo] || '', PL[x.preferencia] ? PL[x.preferencia].l : ''].map(cell).join(';')));
   const url = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a');
@@ -376,7 +410,8 @@ $('#fKind').addEventListener('change', e => { S.kind = e.target.value; renderLis
 $('#exportBtn').addEventListener('click', exportCsv);
 $('#tblWrap').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
-  if(b.dataset.edit) startEdit(b.dataset.edit);
+  if(b.dataset.sort) setSort(b.dataset.sort);
+  else if(b.dataset.edit) startEdit(b.dataset.edit);
   else if(b.dataset.del){
     const it = S.items.find(x => x.id === b.dataset.del); if(!canTouch(it)) return;
     delId = it.id;
